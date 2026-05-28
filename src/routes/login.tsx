@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth-context";
+import { CLASSROOM_SCOPES } from "@/lib/google-token";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
