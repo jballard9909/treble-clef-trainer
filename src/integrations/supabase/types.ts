@@ -14,10 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      game_scores: {
+        Row: {
+          accuracy: number | null
+          correct: number
+          game_id: string
+          id: string
+          played_at: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          correct: number
+          game_id: string
+          id?: string
+          played_at?: string
+          total: number
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          correct?: number
+          game_id?: string
+          id?: string
+          played_at?: string
+          total?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      user_best_scores: {
+        Row: {
+          accuracy: number | null
+          avatar_url: string | null
+          correct: number | null
+          display_name: string | null
+          game_id: string | null
+          played_at: string | null
+          total: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
