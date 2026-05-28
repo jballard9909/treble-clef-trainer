@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { bindGoogleTokenCapture } from "./google-token";
 
 type AuthState = {
   user: User | null;
@@ -20,11 +21,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setLoading(false);
     });
+    const { data: { subscription: tokenSub } } = bindGoogleTokenCapture();
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      tokenSub.unsubscribe();
+    };
   }, []);
 
   const value: AuthState = {

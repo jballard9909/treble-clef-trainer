@@ -14,6 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      class_members: {
+        Row: {
+          class_id: string
+          google_user_id: string | null
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          class_id: string
+          google_user_id?: string | null
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          class_id?: string
+          google_user_id?: string | null
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_members_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          created_at: string
+          google_course_id: string
+          id: string
+          last_synced_at: string | null
+          name: string
+          owner_user_id: string
+          section: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          google_course_id: string
+          id?: string
+          last_synced_at?: string | null
+          name: string
+          owner_user_id: string
+          section?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          google_course_id?: string
+          id?: string
+          last_synced_at?: string | null
+          name?: string
+          owner_user_id?: string
+          section?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       game_scores: {
         Row: {
           accuracy: number | null
@@ -88,7 +156,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      is_class_member: {
+        Args: { _class_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

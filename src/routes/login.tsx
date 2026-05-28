@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth-context";
+import { CLASSROOM_SCOPES } from "@/lib/google-token";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -32,6 +33,12 @@ function LoginPage() {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
+      extraParams: {
+        scope: CLASSROOM_SCOPES,
+        access_type: "offline",
+        prompt: "consent",
+        include_granted_scopes: "true",
+      },
     });
     if (result.error) {
       setError(result.error.message ?? "Google sign-in failed");
