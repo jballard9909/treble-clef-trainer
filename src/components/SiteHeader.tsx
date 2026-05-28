@@ -31,6 +31,15 @@ export function SiteHeader() {
           >
             Leaderboard
           </Link>
+          {user && (
+            <Link
+              to="/classes"
+              className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors"
+              activeProps={{ className: "px-3 py-1.5 rounded-md bg-secondary" }}
+            >
+              Classes
+            </Link>
+          )}
           {loading ? (
             <div className="w-20 h-8" />
           ) : user ? (
