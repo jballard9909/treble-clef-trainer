@@ -1,55 +1,70 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Staff } from "@/components/Staff";
 import { NOTE_NAMES, letterForStep, randomStep, type NoteName } from "@/lib/notes";
+import { useAuth } from "@/lib/auth-context";
+import {
+  fetchPersonalBest,
+  saveScore,
+  TREBLE_CLEF_GAME_ID,
+  type ScoreRow,
+} from "@/lib/scores";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Treble Clef Trainer — Music Theory Practice" },
+      { title: "Treble Clef Trainer — Clef" },
       {
         name: "description",
         content:
-          "A 60-second treble clef note identification game. Practice reading notes from two ledger lines below to two above the staff.",
+          "Sixty seconds, twelve notes. Practice reading treble clef notes and beat your high score.",
       },
-      { property: "og:title", content: "Treble Clef Trainer" },
-      { property: "og:description", content: "60-second music theory note practice." },
     ],
   }),
   component: Home,
 });
 
 const GAME_SECONDS = 60;
-const HIGH_SCORE_KEY = "treble-clef-high-score-v1";
+const LOCAL_HIGH_KEY = "treble-clef-high-score-v1";
 
-type HighScore = { correct: number; total: number; accuracy: number };
-
-function readHighScore(): HighScore | null {
+function readLocalHigh(): ScoreRow | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(HIGH_SCORE_KEY);
-    return raw ? (JSON.parse(raw) as HighScore) : null;
+    const raw = localStorage.getItem(LOCAL_HIGH_KEY);
+    return raw ? (JSON.parse(raw) as ScoreRow) : null;
   } catch {
     return null;
   }
 }
 
+function isBetter(candidate: { correct: number; accuracy: number }, prev: ScoreRow | null) {
+  if (!prev) return true;
+  if (candidate.correct !== prev.correct) return candidate.correct > prev.correct;
+  return candidate.accuracy > prev.accuracy;
+}
+
 function Home() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const [phase, setPhase] = useState<"idle" | "playing" | "done">("idle");
   const [step, setStep] = useState<number>(() => randomStep());
   const [correct, setCorrect] = useState(0);
   const [total, setTotal] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_SECONDS);
   const [wrong, setWrong] = useState(false);
-  const [highScore, setHighScore] = useState<HighScore | null>(null);
   const [isNewHigh, setIsNewHigh] = useState(false);
   const wrongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    setHighScore(readHighScore());
-  }, []);
+  // Personal best: from DB when signed in, localStorage otherwise.
+  const highQuery = useQuery({
+    queryKey: ["personal-best", TREBLE_CLEF_GAME_ID, user?.id ?? "local"],
+    queryFn: async () =>
+      user ? await fetchPersonalBest(user.id, TREBLE_CLEF_GAME_ID) : readLocalHigh(),
+  });
+  const highScore = highQuery.data ?? null;
 
-  // Game timer
   useEffect(() => {
     if (phase !== "playing") return;
     if (timeLeft <= 0) {
@@ -73,24 +88,35 @@ function Home() {
     setPhase("playing");
   };
 
-  const finishGame = useCallback(() => {
+  const finishGame = useCallback(async () => {
     setPhase("done");
     const accuracy = total === 0 ? 0 : correct / total;
-    const prev = readHighScore();
-    const isHigher =
-      !prev ||
-      accuracy > prev.accuracy ||
-      (accuracy === prev.accuracy && correct > prev.correct);
-    if (isHigher && total > 0) {
-      const next = { correct, total, accuracy };
-      localStorage.setItem(HIGH_SCORE_KEY, JSON.stringify(next));
-      setHighScore(next);
-      setIsNewHigh(true);
-    } else {
-      setHighScore(prev);
-      setIsNewHigh(false);
+    const candidate = { correct, total, accuracy, played_at: new Date().toISOString() };
+
+    // Persist round
+    if (user && total > 0) {
+      try {
+        await saveScore(user.id, TREBLE_CLEF_GAME_ID, correct, total);
+      } catch (e) {
+        console.error("Failed to save score", e);
+      }
     }
-  }, [correct, total]);
+
+    // Determine new high before refreshing
+    const beatsPrev = isBetter(candidate, highScore) && total > 0;
+    setIsNewHigh(beatsPrev);
+
+    if (user) {
+      queryClient.invalidateQueries({ queryKey: ["personal-best"] });
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+    } else if (beatsPrev) {
+      localStorage.setItem(LOCAL_HIGH_KEY, JSON.stringify(candidate));
+      queryClient.setQueryData(
+        ["personal-best", TREBLE_CLEF_GAME_ID, "local"],
+        candidate,
+      );
+    }
+  }, [correct, total, user, highScore, queryClient]);
 
   const handleAnswer = (note: NoteName) => {
     if (phase !== "playing") return;
@@ -109,7 +135,7 @@ function Home() {
   };
 
   return (
-    <main className="min-h-screen px-4 py-8 sm:py-12">
+    <main className="min-h-[calc(100vh-3.5rem)] px-4 py-8 sm:py-12">
       <div className="mx-auto max-w-3xl">
         <header className="mb-8 text-center">
           <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
@@ -118,10 +144,19 @@ function Home() {
           <p className="mt-2 text-muted-foreground">
             Name the note. Sixty seconds. Beat your high score.
           </p>
+          {!user && (
+            <p className="mt-3 text-sm">
+              <Link to="/login" className="text-primary underline-offset-4 hover:underline">
+                Sign in
+              </Link>{" "}
+              <span className="text-muted-foreground">
+                to save scores and join the leaderboard.
+              </span>
+            </p>
+          )}
         </header>
 
         <section className="rounded-2xl border bg-card/70 backdrop-blur p-6 sm:p-8 shadow-2xl shadow-black/30">
-          {/* HUD */}
           <div className="flex items-center justify-between text-sm font-medium mb-6">
             <div className="rounded-full bg-secondary px-3 py-1.5 tabular-nums">
               Score <span className="text-primary">{correct}</span>
@@ -138,7 +173,6 @@ function Home() {
             </div>
           </div>
 
-          {/* Staff area */}
           <div className="relative rounded-xl bg-background/50 border py-6 min-h-[260px] flex items-center">
             <Staff step={step} />
             {wrong && (
@@ -150,7 +184,6 @@ function Home() {
             )}
           </div>
 
-          {/* Answer buttons */}
           <div className="mt-6 grid grid-cols-4 sm:grid-cols-6 gap-2">
             {NOTE_NAMES.map((n) => (
               <button
@@ -164,7 +197,6 @@ function Home() {
             ))}
           </div>
 
-          {/* Start / restart */}
           {phase !== "playing" && (
             <div className="mt-6 flex justify-center">
               <button
@@ -178,7 +210,7 @@ function Home() {
 
           {highScore && phase === "idle" && (
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              All-time best: {highScore.correct}/{highScore.total}
+              All-time best: {highScore.correct}/{highScore.total} ({Math.round(highScore.accuracy * 100)}%)
             </p>
           )}
         </section>
@@ -210,10 +242,15 @@ function ResultModal({
 }: {
   correct: number;
   total: number;
-  highScore: HighScore | null;
+  highScore: ScoreRow | null;
   isNewHigh: boolean;
   onClose: () => void;
 }) {
+  // After save+invalidation the high score query will reflect the new value; show whichever is higher to avoid a flash of stale data.
+  const displayedHigh = isNewHigh
+    ? { correct, total, accuracy: total === 0 ? 0 : correct / total }
+    : highScore;
+
   return (
     <div
       role="dialog"
@@ -235,11 +272,11 @@ function ResultModal({
         </p>
         <p className="mt-1 text-sm text-muted-foreground">Your score</p>
 
-        {highScore && (
+        {displayedHigh && (
           <div className="mt-6 pt-6 border-t">
             <p className="text-2xl font-semibold tabular-nums">
-              {highScore.correct}
-              <span className="text-muted-foreground">/{highScore.total}</span>
+              {displayedHigh.correct}
+              <span className="text-muted-foreground">/{displayedHigh.total}</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">All-time high score</p>
           </div>
