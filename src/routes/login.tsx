@@ -33,6 +33,12 @@ function LoginPage() {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
+      extraParams: {
+        scope: CLASSROOM_SCOPES,
+        access_type: "offline",
+        prompt: "consent",
+        include_granted_scopes: "true",
+      },
     });
     if (result.error) {
       setError(result.error.message ?? "Google sign-in failed");
