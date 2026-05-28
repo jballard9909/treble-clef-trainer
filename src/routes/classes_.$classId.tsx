@@ -5,7 +5,7 @@ import { fetchClassLeaderboard, fetchClassMembers } from "@/lib/classes";
 import { TREBLE_CLEF_GAME_ID } from "@/lib/scores";
 import { useAuth } from "@/lib/auth-context";
 
-export const Route = createFileRoute("/classes/$classId")({
+export const Route = createFileRoute("/classes_/$classId")({
   head: () => ({
     meta: [
       { title: "Class — Clef" },
